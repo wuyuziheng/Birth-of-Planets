@@ -179,7 +179,7 @@ class Model():
                     print("Merge Successed!")
                     return True
                 pbar.update(1)
-                print(f"Merge Failed! Remaining {self.num} planets")
+            print(f"Merge Failed! Remaining {self.num} planets")
         return False
 
     def _draw_figure(self, i, M, radii, num, basic_radii):
@@ -247,16 +247,16 @@ if __name__ == "__main__":
     
     print(init_state._get_max_v(sun_mass))
 
-    if not os.path.exist("./tmp"):
+    if not os.path.exists("./tmp"):
         os.mkdir("./tmp")
 
     # Run Model in chunks
     model = Model(M, rho, radii, sun_mass, beta, time, step_num, total_num)
     for i in range(num_chunks):
-        print(f"----------Predicting ... Chunk ({i}/{num_chunks})----------")
+        print(f"----------Predicting ... Chunk ({i+1}/{num_chunks})----------")
         if model.evolve():
             break
-        print(f"----------Generating video ... Chunk ({i}/{num_chunks})----------")
+        print(f"----------Generating video ... Chunk ({i+1}/{num_chunks})----------")
         model.generate_video(40, basic_radii, f"./tmp/image-{i}.mp4")
         model._reset()
     print("Successfully merged!")
