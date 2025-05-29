@@ -4,14 +4,14 @@
 ### 快速开始
 从github拉取：
 ~~~
-git clone git@github.com:Kouer-www/Birth-of-Planets.git
+git clone https://github.com/Kouer-www/Birth-of-Planets.git
 ~~~
 
 首先安装依赖包：
 ~~~
 conda create -n bop python==3.12
 conda activate bop
-pip install requirements.txt
+pip install -r requirements.txt
 ~~~
 
 一键启动：
