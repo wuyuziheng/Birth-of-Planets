@@ -9,6 +9,8 @@ git clone git@github.com:Kouer-www/Birth-of-Planets.git
 
 首先安装依赖包：
 ~~~
+conda create -n bop python==3.12
+conda activate bop
 pip install requirements.txt
 ~~~
 
