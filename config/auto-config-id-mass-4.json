@@ -1,1 +1,0 @@
-{"G": 2.6696e-13, "rho": 250.0, "sun_mass": 2500000000000000.0, "merging_threshold": 10, "per_step_time": 10, "num_steps": 10000, "basic_radii": 1, "num_chunks": 5, "init_config": {"num_planets": 100, "pos_norm": 1000, "pos_bias": 100, "v_norm": 0.9, "v_bias": 0.01}, "figure_config": {"margin_bias": 1000, "range_quantile": 0.9, "record_steps": 40}}

@@ -255,7 +255,8 @@ if __name__ == "__main__":
         "id-length": auto.identity_length,
         "id-mass": auto.identity_mass,
         "id-time": auto.identity_time,
-        "plan-scope": auto.plan_scope
+        "id-scope": auto.identity_scope,
+        "metric-mode": auto.init_config_from_metrics
     }
     try:
         output_path = AUTO_CONFIG_MAP[method](**auto_config["config"])

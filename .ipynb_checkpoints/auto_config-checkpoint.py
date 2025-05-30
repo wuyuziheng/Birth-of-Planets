@@ -50,9 +50,21 @@ class AutoConfig():
         self.margin_bias = figure_config["margin_bias"]
         self.range_quantile = figure_config["range_quantile"]
         self.record_steps = figure_config["record_steps"]
+        self.metrics = self._get_metrics()
         
     def _reset(self, config): 
         self.__init__(config)
+
+    def _get_metrics(self):
+        metrics = {}
+        metrics["merger_checking"] = self.pos_bias/(self.basic_radii*self.merging_threshold)
+        metrics["orbit_constant"] = math.sqrt(self.G*self.sun_mass/self.pos_norm)/self.v_norm
+        metrics["force_ratio"] = self.sun_mass * math.pow(self.pos_bias,2)/(self.rho * math.pow(self.basic_radii,3) * math.pow(self.pos_norm, 2))
+        metrics["angular_velocity"] = self.v_norm/self.pos_norm
+        metrics["init_pos_ratio"] = self.pos_bias/self.pos_norm
+        metrics["init_vel_ratio"] = self.v_bias/self.v_norm
+        metrics["line_density"] = self.basic_radii/self.pos_norm
+        return metrics
 
     def _config_to_json(self, config, output_path):
         with open(output_path, 'w') as f: 
@@ -82,9 +94,27 @@ class AutoConfig():
         figure_config["range_quantile"] = self.range_quantile
         figure_config["record_steps"] = self.record_steps
         config["figure_config"] = figure_config
+
+        config["metrics"] = self.metrics
         
         self._config_to_json(config, output_path)
-
+    
+    def init_config_from_metrics(self, merger_checking, orbit_constant, force_ratio, angular_velocity, init_pos_ratio, init_vel_ratio, G, sun_mass, merging_threshold, pos_norm, output_path, **kwargs):
+        self.G = G
+        self.sun_mass = sun_mass
+        self.pos_norm = pos_norm
+        self.pos_bias = init_pos_ratio * pos_norm
+        self.v_norm = math.sqrt(self.G*self.sun_mass/self.pos_norm)/orbit_constant
+        self.v_bias = init_vel_ratio * self.v_norm
+        self.per_step_time = self.pos_norm/self.v_norm
+        self.basic_radii = self.pos_bias/(self.merging_threshold * merger_checking)
+        self.rho = self.sun_mass * math.pow(self.pos_bias,2)/(force_ratio * math.pow(self.basic_radii,3) * math.pow(self.pos_norm, 2))
+        self.margin_bias = self.pos_norm
+        self.metrics = self._get_metrics()
+        output_path += f"-metrics-mode.json"
+        self._reset_config(output_path)
+        return output_path
+        
     def identity_length(self, scale, output_path):
         self.G = self.G/(math.pow(scale,3))
         self.rho = self.rho * math.pow(scale,3)
@@ -94,6 +124,7 @@ class AutoConfig():
         self.v_norm = self.v_norm/scale
         self.v_bias = self.v_bias/scale
         self.margin_bias = self.margin_bias/scale
+        self.metrics = self._get_metrics()
         output_path += f"-id-length-{scale}.json"
         self._reset_config(output_path)
         return output_path
@@ -102,6 +133,7 @@ class AutoConfig():
         self.G = self.G * scale
         self.rho = self.rho/scale
         self.sun_mass = self.sun_mass/scale
+        self.metrics = self._get_metrics()
         output_path += f"-id-mass-{scale}.json"
         self._reset_config(output_path)
         return output_path
@@ -111,11 +143,12 @@ class AutoConfig():
         self.per_step_time = self.per_step_time/scale
         self.v_norm = self.v_norm * scale 
         self.v_bias = self.v_bias * scale 
+        self.metrics = self._get_metrics()
         output_path += f"-id-time-{scale}.json"
         self._reset_config(output_path)
         return output_path
 
-    def plan_scope(self, scale, output_path):
+    def identity_scope(self, scale, output_path):
         self.rho = self.rho * math.pow(scale, 3)
         self.sun_mass = self.sun_mass * math.pow(scale, 3)
         self.merging_threshold = self.merging_threshold * scale 
@@ -124,7 +157,8 @@ class AutoConfig():
         self.pos_bias = self.pos_bias * scale 
         self.v_norm = self.v_norm * scale
         self.v_bias = self.v_bias * scale
-        output_path += f"-plan-scope-{scale}.json"
+        self.metrics = self._get_metrics()
+        output_path += f"-id-scope-{scale}.json"
         self._reset_config(output_path)
         return output_path
 
