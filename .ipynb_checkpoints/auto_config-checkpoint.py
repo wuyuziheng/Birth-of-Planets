@@ -106,7 +106,7 @@ class AutoConfig():
         self.pos_bias = init_pos_ratio * pos_norm
         self.v_norm = math.sqrt(self.G*self.sun_mass/self.pos_norm)/orbit_constant
         self.v_bias = init_vel_ratio * self.v_norm
-        self.per_step_time = self.pos_norm/self.v_norm
+        self.per_step_time = self.pos_norm/(self.v_norm*100)
         self.basic_radii = self.pos_bias/(self.merging_threshold * merger_checking)
         self.rho = self.sun_mass * math.pow(self.pos_bias,2)/(force_ratio * math.pow(self.basic_radii,3) * math.pow(self.pos_norm, 2))
         self.margin_bias = self.pos_norm
@@ -161,25 +161,6 @@ class AutoConfig():
         output_path += f"-id-scope-{scale}.json"
         self._reset_config(output_path)
         return output_path
-
-    def plan_force(self, scale, output_path):
-        self.rho = self.rho * scale
-        output_path += f"-force-{scale}.json"
-        self._reset_config(self.config, output_path)
-
-    def plan_threshold(self, scale, output_path):
-        self.merging_threshold = self.merging_threshold * scale
-        output_path += f"-threshold-{scale}.json"
-        self._reset_config(self.config, output_path)
-
-    def plan_line_density(self, scale, output_path):
-        self.pos_norm = self.pos_norm * scale
-        self.pos_bias = self.pos_bias * scale 
-        self.merging_threshold = self.merging_threshold * scale
-        self.v_norm = self.v_norm/math.sqrt(scale)
-        self.per_step_time = self.per_step_time * math.pow(scale, 3/2)
-        output_path += f"-line-density-{scale}.json"
-        self._reset_config(self.config, output_path)
 
 if __name__ == "__main__":
     basic_config = Params(basic_config_path).dict

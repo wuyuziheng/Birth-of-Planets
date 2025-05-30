@@ -16,9 +16,9 @@
         "output_path": "./config/auto-config"
     },
     "metric-mode":{
-        "merger_checking": 10.0,
+        "merger_checking": 10.0, 
         "orbit_constant": 0.907717256244449,
-        "force_ratio": 100000000000.0,
+        "force_ratio": 100000000000000,
         "angular_velocity": 0.0009,
         "init_pos_ratio": 0.1,
         "init_vel_ratio": 0.011111111111111112,
