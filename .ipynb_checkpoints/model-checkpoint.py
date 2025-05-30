@@ -26,6 +26,7 @@ device = torch.device('cpu')
 dtype = torch.float64
 FPS = 30
 SIZE = (640,480)
+AUTO_CONFIG_PATH = "./config/auto_config.json"
 
 class Params():
     """
@@ -248,9 +249,9 @@ if __name__ == "__main__":
 
     # Parse arguments ---> Add auto config to 
     config = Params(args.config_path).dict
+    auto_config = Params(AUTO_CONFIG_PATH).dict
     auto = AutoConfig(config)
-    auto_config = config["auto_config"]
-    method = auto_config["method"]
+    method = config["auto_config_method"]
     AUTO_CONFIG_MAP = {
         "id-length": auto.identity_length,
         "id-mass": auto.identity_mass,
@@ -259,7 +260,7 @@ if __name__ == "__main__":
         "metric-mode": auto.init_config_from_metrics
     }
     try:
-        output_path = AUTO_CONFIG_MAP[method](**auto_config["config"])
+        output_path = AUTO_CONFIG_MAP[method](**auto_config[method])
         print(f"----------Change to Auto Config {output_path}----------")
         config = Params(output_path).dict
     except:
