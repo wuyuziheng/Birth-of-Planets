@@ -3,3 +3,10 @@
 *.mp4
 test.py
 test1.py
+__pycache__
+orbit.py
+orbit.png
+.ipynb_checkpoints
+config/.ipynb_checkpoints
+result/.ipynb_checkpoints
+tmp/.ipynb_checkpoints

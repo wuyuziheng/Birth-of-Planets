@@ -111,6 +111,7 @@ class Model():
 
         self.func = Func(torch.tensor(self.rho * (4/3) * math.pi, dtype=dtype, device=device) * self.radii.pow(3), self.sun_mass)
         self.num = M.size(0) # number of planets
+        self.init_num = M.size(0)
 
         self.result_list = [] # cache of result
         self.radii_list = [] # cache of radii
@@ -121,15 +122,18 @@ class Model():
         self.total_num = total_num # number of steps of the whole process (of all chunks)
         self.finished_chunks = 0 # chunks that already finished
 
+        self.total_num_list = []
+
     def _reset(self):
         # reset caches, start the next chunk
         self.result_list = []
         self.radii_list = []
+        self.total_num_list += self.num_list
         self.num_list = []
         self.figure_list = []
         self.video = None
         self.finished_chunks += 1
-
+        
     def move_one_step_forward(self):
         # use current state to predict next state
         self.M = RK5_one_step(self.func, self.time, self.M)
@@ -175,9 +179,9 @@ class Model():
                 self.result_list.append(self.M)
                 self.radii_list.append(self.radii)
                 self.num_list.append(self.num)
-                if self.num == 1:
-                    print("Merge Successed!")
-                    return True
+                # if self.num == 1:
+                #     print("Merge Successed!")
+                #     return True
                 pbar.update(1)
         print(f"Merge Failed! Remaining {self.num} planets")
         return False
@@ -214,6 +218,16 @@ class Model():
                 pbar.update(1)
             self.video.release()
             cv2.destroyAllWindows()
+
+    def draw_distribution_graph(self, output_path):
+        fig = plt.figure()
+        x = np.arange(self.total_num)
+        y = np.array(self.total_num_list)
+        plt.xlim((0,self.total_num))
+        plt.ylim((0,self.init_num))
+        plt.plot(x, y, 'r--')
+        plt.savefig(output_path)
+        plt.close(fig)
 
 if __name__ == "__main__":
     """
@@ -281,6 +295,7 @@ if __name__ == "__main__":
         model.generate_video(record_steps, basic_radii, f"./tmp/image-{i}.mp4", figure_range)
         model._reset()
     print("Successfully predicted!")
+    model.draw_distribution_graph("./result/distibution.png")
 
     # merge videos in each chunk
     L = [] 
