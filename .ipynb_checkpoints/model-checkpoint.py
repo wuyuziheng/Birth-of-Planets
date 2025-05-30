@@ -6,6 +6,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import argparse
 from init_utils import *
+from auto_config import *
 import cv2
 
 from moviepy import *
@@ -23,7 +24,6 @@ from natsort import natsorted
 # device = torch.device('cuda')
 device = torch.device('cpu')
 dtype = torch.float64
-G = torch.tensor(6.674e-11, dtype=dtype).to(device)
 FPS = 30
 SIZE = (640,480)
 
@@ -200,7 +200,7 @@ class Model():
         ax.set_zlabel("Z")
         ax.set_xlim(figure_range["length"][0], figure_range["length"][1])
         ax.set_ylim(figure_range["width"][0], figure_range["width"][1]) 
-        ax.set_zlim(-30000, 30000)
+        ax.set_zlim(-figure_range["length"][1], figure_range["length"][1])
         ax.set_title(f"Process:{int(100*(self.finished_chunks*self.step_num+i+1)/self.total_num)}%, Remaining:{num}")
         ax.scatter(0, 0, 0, c='y', marker='o')
         ax.scatter(M_x, M_y, M_z, s=scale, c='r', marker='o') 
@@ -246,8 +246,24 @@ if __name__ == "__main__":
     parser.add_argument("--config_path", type=str, default="./config/config.json")
     args = parser.parse_args()
 
-    # Parse arguments
+    # Parse arguments ---> Add auto config to 
     config = Params(args.config_path).dict
+    auto = AutoConfig(config)
+    auto_config = config["auto_config"]
+    method = auto_config["method"]
+    AUTO_CONFIG_MAP = {
+        "id-length": auto.identity_length,
+        "id-mass": auto.identity_mass,
+        "id-time": auto.identity_time,
+        "plan-scope": auto.plan_scope
+    }
+    try:
+        output_path = AUTO_CONFIG_MAP[method](**auto_config["config"])
+        print(f"----------Change to Auto Config {output_path}----------")
+        config = Params(output_path).dict
+    except:
+        print("----------Invalid auto config setting! Use the original config ... ----------")
+    G = config["G"]
     rho = config["rho"]
     sun_mass = config["sun_mass"]
     beta = config["merging_threshold"]
@@ -255,10 +271,12 @@ if __name__ == "__main__":
     time = config["per_step_time"]
     basic_radii = config["basic_radii"]
     num_chunks = config["num_chunks"]
-    init_state = Init_Utils(**config["init_config"])
+    G = torch.tensor(G, dtype=dtype).to(device)
+    init_state = Init_Utils(G, **config["init_config"])
     total_num = num_chunks * step_num
     M = init_state.init_M_state().to(device)
     radii = init_state.init_radii_state(basic_radii).to(device)
+    
 
     # compute the range of velocity
     tmp_max = init_state._get_max_v(sun_mass)

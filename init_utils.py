@@ -5,7 +5,6 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 dtype = torch.float64
-G = torch.tensor(6.674e-11, dtype=dtype)
 seed = 42
 torch.manual_seed(seed)
 
@@ -18,7 +17,8 @@ class Init_Utils():
             v_norm     --> float
             v_bias     --> float
     """
-    def __init__(self, num_planets, pos_norm, pos_bias, v_norm, v_bias):
+    def __init__(self, G, num_planets, pos_norm, pos_bias, v_norm, v_bias):
+        self.G = G
         self.num = num_planets
         self.pos_norm = pos_norm
         self.pos_bias = pos_bias
@@ -27,7 +27,7 @@ class Init_Utils():
 
     def _get_max_v(self, sun_mass):
         # get the max speed if the orbit is a ellipse
-        return math.sqrt(2*G*sun_mass/self.pos_norm)
+        return math.sqrt(2*self.G*sun_mass/self.pos_norm)
 
     def init_M_state(self):
         # init the planets at the nearest point
@@ -42,9 +42,9 @@ class Init_Utils():
 
     def _ellipse_orbit(self, theta, v, sin_phi, r, sun_mass):
         h = v*sin_phi*r
-        E = (1/2)*v*v - (G * sun_mass)/r
-        e = torch.sqrt(1+(2*E*h*h)/(G*G*sun_mass*sun_mass))
-        return (h**2/(G*sun_mass))/(1+e*torch.cos(theta))
+        E = (1/2)*v*v - (self.G * sun_mass)/r
+        e = torch.sqrt(1+(2*E*h*h)/(self.G*self.G*sun_mass*sun_mass))
+        return (h**2/(self.G*sun_mass))/(1+e*torch.cos(theta))
 
     def _max_orbit_range(self, v, sin_phi, r, sun_mass):
         total_num = v.size(0)

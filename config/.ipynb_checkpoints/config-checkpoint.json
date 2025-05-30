@@ -1,23 +1,32 @@
 {
-    "rho": 1,
-    "sun_mass": 10000000000000000,
+    "G": 6.674e-14,
+    "rho": 1000,
+    "sun_mass": 1.0e16,
     "merging_threshold": 10, 
     "per_step_time": 10,
-    "num_steps": 100000,
-    "basic_radii": 10,
+    "num_steps": 10000,
+    "basic_radii": 1,
     "num_chunks": 5,
     "init_config":
     {
         "num_planets": 100,
-        "pos_norm": 10000,
-        "pos_bias": 1000,
-        "v_norm": 9,
-        "v_bias": 0.1
+        "pos_norm": 1000,
+        "pos_bias": 100,
+        "v_norm": 0.9,
+        "v_bias": 0.01
     },
     "figure_config":
     {
-        "margin_bias": 10000,
+        "margin_bias": 1000,
         "range_quantile": 0.9,
         "record_steps": 40
+    },
+    "auto_config":
+    {
+        "method": "plan-scope",
+        "config": {
+            "scale": 4,
+            "output_path": "./config/auto-config"
+        }
     }
 }

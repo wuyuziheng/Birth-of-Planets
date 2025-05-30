@@ -29,15 +29,28 @@ class Params():
 class AutoConfig():
     def __init__(self, config):
         self.config = config
+
+        self.G = config["G"]
+        self.rho = config["rho"]
+        self.sun_mass = config["sun_mass"]
+        self.merging_threshold = config["merging_threshold"]
+        self.per_step_time = config["per_step_time"]
+        self.num_steps = config["num_steps"]
+        self.basic_radii = config["basic_radii"]
+        self.num_chunks = config["num_chunks"]
+        
         init_config = config["init_config"]
+        self.num_planets = init_config["num_planets"]
         self.pos_norm = init_config["pos_norm"]
         self.pos_bias = init_config["pos_bias"]
         self.v_norm = init_config["v_norm"]
-        
-        self.rho = config["rho"]
-        self.merging_threshold = config["merging_threshold"]
-        self.per_step_time = config["per_step_time"]
+        self.v_bias = init_config["v_bias"]
 
+        figure_config = config["figure_config"]
+        self.margin_bias = figure_config["margin_bias"]
+        self.range_quantile = figure_config["range_quantile"]
+        self.record_steps = figure_config["record_steps"]
+        
     def _reset(self, config): 
         self.__init__(config)
 
@@ -45,17 +58,75 @@ class AutoConfig():
         with open(output_path, 'w') as f: 
             f.write(json.dumps(config))
 
-    def _reset_config(self, config, output_path):
-        init_config = config["init_config"]
+    def _reset_config(self, output_path):
+        config = {}
+        config["G"] = self.G
+        config["rho"] = self.rho
+        config["sun_mass"] = self.sun_mass
+        config["merging_threshold"] = self.merging_threshold
+        config["per_step_time"] = self.per_step_time
+        config["num_steps"] = self.num_steps
+        config["basic_radii"] = self.basic_radii
+        config["num_chunks"] = self.num_chunks
+        
+        init_config = {}
+        init_config["num_planets"] = self.num_planets
         init_config["pos_norm"] = self.pos_norm
         init_config["pos_bias"] = self.pos_bias
         init_config["v_norm"] = self.v_norm
+        init_config["v_bias"] = self.v_bias
         config["init_config"] = init_config
-
-        config["rho"] = self.rho
-        config["merging_threshold"] = self.merging_threshold
-        config["per_step_time"] = self.per_step_time
+        
+        figure_config = {}
+        figure_config["margin_bias"] = self.margin_bias
+        figure_config["range_quantile"] = self.range_quantile
+        figure_config["record_steps"] = self.record_steps
+        config["figure_config"] = figure_config
+        
         self._config_to_json(config, output_path)
+
+    def identity_length(self, scale, output_path):
+        self.G = self.G/(math.pow(scale,3))
+        self.rho = self.rho * math.pow(scale,3)
+        self.basic_radii = self.basic_radii/scale
+        self.pos_norm = self.pos_norm/scale
+        self.pos_bias = self.pos_bias/scale
+        self.v_norm = self.v_norm/scale
+        self.v_bias = self.v_bias/scale
+        self.margin_bias = self.margin_bias/scale
+        output_path += f"-id-length-{scale}.json"
+        self._reset_config(output_path)
+        return output_path
+
+    def identity_mass(self, scale, output_path):
+        self.G = self.G * scale
+        self.rho = self.rho/scale
+        self.sun_mass = self.sun_mass/scale
+        output_path += f"-id-mass-{scale}.json"
+        self._reset_config(output_path)
+        return output_path
+
+    def identity_time(self, scale, output_path):
+        self.G = self.G * math.pow(scale, 2)
+        self.per_step_time = self.per_step_time/scale
+        self.v_norm = self.v_norm * scale 
+        self.v_bias = self.v_bias * scale 
+        output_path += f"-id-time-{scale}.json"
+        self._reset_config(output_path)
+        return output_path
+
+    def plan_scope(self, scale, output_path):
+        self.rho = self.rho * math.pow(scale, 3)
+        self.sun_mass = self.sun_mass * math.pow(scale, 3)
+        self.merging_threshold = self.merging_threshold * scale 
+        
+        self.pos_norm = self.pos_norm * scale 
+        self.pos_bias = self.pos_bias * scale 
+        self.v_norm = self.v_norm * scale
+        self.v_bias = self.v_bias * scale
+        output_path += f"-plan-scope-{scale}.json"
+        self._reset_config(output_path)
+        return output_path
 
     def plan_force(self, scale, output_path):
         self.rho = self.rho * scale
@@ -79,8 +150,8 @@ class AutoConfig():
 if __name__ == "__main__":
     basic_config = Params(basic_config_path).dict
     output_path = "./config/auto-config"
-    scale = 16
+    scale = 4
     A = AutoConfig(basic_config)
-    A.plan_line_density(scale, output_path)
+    A.identity_length(scale, output_path)
         
 
