@@ -6,6 +6,8 @@ import numpy as np
 
 dtype = torch.float64
 G = torch.tensor(6.674e-11, dtype=dtype)
+seed = 42
+torch.manual_seed(seed)
 
 class Init_Utils():
     """
@@ -38,11 +40,16 @@ class Init_Utils():
         # set the radius of planet 
         return torch.full((self.num,),basic_radii).to(dtype=dtype).abs() # We first assume they have the same radius at beginning
 
-    def _ellipse_orbit(self, theta, v, phi, r, sun_mass):
-        h = v*math.sin(phi)*r
+    def _ellipse_orbit(self, theta, v, sin_phi, r, sun_mass):
+        h = v*sin_phi*r
         E = (1/2)*v*v - (G * sun_mass)/r
-        e = math.sqrt(1+(2*E*h*h)/(G*G*sun_mass*sun_mass))
-        return (h**2/(G*sun_mass))/(1+e*np.cos(theta))
+        e = torch.sqrt(1+(2*E*h*h)/(G*G*sun_mass*sun_mass))
+        return (h**2/(G*sun_mass))/(1+e*torch.cos(theta))
+
+    def _max_orbit_range(self, v, sin_phi, r, sun_mass):
+        total_num = v.size(0)
+        theta = torch.full((total_num,), math.pi)
+        return self._ellipse_orbit(theta, v, sin_phi, r, sun_mass)
     
     def _draw_polar(self, series: pd.Series, output_path):
         fig = plt.figure()
@@ -54,8 +61,17 @@ class Init_Utils():
         plt.close(fig)
 
     def draw_orbit(self, sun_mass, output_path):
-        config = {"v": self.v_norm, "phi": math.pi/2, "r": self.pos_norm, "sun_mass": sun_mass}
-        theta = np.arange(0, 2*math.pi, 0.01)
-        orbit = pd.Series(self._ellipse_orbit(theta, **config), theta)
+        config = {"v": self.v_norm, "sin_phi": math.sin(math.pi/2), "r": self.pos_norm, "sun_mass": sun_mass}
+        theta = torch.arange(0, 2*math.pi, 0.01)
+        orbit = pd.Series(self._ellipse_orbit(theta, **config).cpu().numpy(), theta.cpu().numpy())
         self._draw_polar(orbit, output_path)
+
+    def get_figure_range(self, M, sun_mass):
+        pos_state = M[:,:3]
+        v_state = M[:,3:]
+        r = pos_state.square().sum(-1).sqrt()
+        v = v_state.square().sum(-1).sqrt()
+        sin_phi = (pos_state * v_state).sum(-1)/(r*v + 1.0e-9) 
+        sin_phi = (1 - sin_phi.square()).sqrt()
+        return self._max_orbit_range(v, sin_phi, r, sun_mass)
         

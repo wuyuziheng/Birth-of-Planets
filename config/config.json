@@ -1,7 +1,7 @@
 {
     "rho": 1,
     "sun_mass": 10000000000000000,
-    "merging_threshold": 500, 
+    "merging_threshold": 5, 
     "per_step_time": 10,
     "num_steps": 1000,
     "basic_radii": 10,
@@ -11,7 +11,12 @@
         "num_planets": 100,
         "pos_norm": 10000,
         "pos_bias": 1000,
-        "v_norm": 8,
+        "v_norm": 10,
         "v_bias": 0.1
+    },
+    "figure_config":
+    {
+        "margin_bias": 10000,
+        "range_quantile": 0.8
     }
 }

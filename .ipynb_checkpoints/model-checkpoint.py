@@ -182,7 +182,7 @@ class Model():
             print(f"Merge Failed! Remaining {self.num} planets")
         return False
 
-    def _draw_figure(self, i, M, radii, num, basic_radii):
+    def _draw_figure(self, i, M, radii, num, basic_radii, figure_range):
         # draw a single frame
         fig = plt.figure()
         ax = fig.add_subplot(111, projection ='3d')
@@ -194,8 +194,8 @@ class Model():
         ax.set_xlabel("X")
         ax.set_ylabel("Y")
         ax.set_zlabel("Z")
-        ax.set_xlim(-30000, 30000)
-        ax.set_ylim(-30000, 30000) 
+        ax.set_xlim(figure_range["length"][0], figure_range["length"][1])
+        ax.set_ylim(figure_range["width"][0], figure_range["width"][1]) 
         ax.set_zlim(-30000, 30000)
         ax.set_title(f"Process:{int(100*(self.finished_chunks*self.step_num+i+1)/self.total_num)}%, Remaining:{num}")
         ax.scatter(M_x, M_y, M_z, s=scale, c='r', marker='o') 
@@ -204,12 +204,12 @@ class Model():
         self.video.write(cv2.imread("./image.png"))
         os.remove("./image.png")
         
-    def generate_video(self, record_steps, basic_radii, output_path):
+    def generate_video(self, record_steps, basic_radii, output_path, figure_range):
         # merge to a video
         with tqdm(total=int(self.step_num/record_steps)) as pbar:
             self.video = cv2.VideoWriter(output_path, cv2.VideoWriter_fourcc(*"mp4v"), FPS, SIZE) 
             for i in range(0, self.step_num, record_steps):
-                self._draw_figure(i, self.result_list[i], self.radii_list[i], self.num_list[i], basic_radii)
+                self._draw_figure(i, self.result_list[i], self.radii_list[i], self.num_list[i], basic_radii, figure_range)
                 pbar.update(1)
             self.video.release()
             cv2.destroyAllWindows()
@@ -244,7 +244,6 @@ if __name__ == "__main__":
     total_num = num_chunks * step_num
     M = init_state.init_M_state().to(device)
     radii = init_state.init_radii_state(basic_radii).to(device)
-
     
     tmp_max = init_state._get_max_v(sun_mass)
     tmp_min = (1/math.sqrt(2))*tmp_max
@@ -258,8 +257,14 @@ if __name__ == "__main__":
     if not os.path.exists("./result"):
         os.mkdir("./result")
 
+    fig_config = config["figure_config"]
     print("Orbit figure saved.")
     init_state.draw_orbit(sun_mass, "./result/orbit.png")
+    margin_bias = fig_config["margin_bias"]
+    max_figure_range = torch.quantile(init_state.get_figure_range(M, sun_mass), fig_config["range_quantile"]) + margin_bias
+    min_figure_range = init_state.pos_norm + margin_bias
+    width = (max_figure_range + min_figure_range)/2
+    figure_range = {"length":[-max_figure_range, min_figure_range], "width":[-width, width]}
 
     # Run Model in chunks
     model = Model(M, rho, radii, sun_mass, beta, time, step_num, total_num)
@@ -268,7 +273,7 @@ if __name__ == "__main__":
         if model.evolve():
             break
         print(f"----------Generating video ... Chunk ({i+1}/{num_chunks})----------")
-        model.generate_video(40, basic_radii, f"./tmp/image-{i}.mp4")
+        model.generate_video(40, basic_radii, f"./tmp/image-{i}.mp4", figure_range)
         model._reset()
     print("Successfully predicted!")
 
@@ -288,4 +293,4 @@ if __name__ == "__main__":
         final_clip = concatenate_videoclips(L)
         final_clip.write_videofile("./result/final.mp4", fps=FPS, remove_temp=False)
     else:
-        print("----------WARNING!!! No Video Found!----------")
+        print("----------WARNING!!! No Videos Found!----------")
