@@ -269,6 +269,7 @@ if __name__ == "__main__":
     min_figure_range = init_state.pos_norm + margin_bias
     width = (max_figure_range + min_figure_range)/2
     figure_range = {"length":[-max_figure_range, min_figure_range], "width":[-width, width]}
+    record_steps = fig_config["record_steps"]
 
     # Run Model in chunks
     model = Model(M, rho, radii, sun_mass, beta, time, step_num, total_num)
@@ -277,7 +278,7 @@ if __name__ == "__main__":
         if model.evolve():
             break
         print(f"----------Generating video ... Chunk ({i+1}/{num_chunks})----------")
-        model.generate_video(40, basic_radii, f"./tmp/image-{i}.mp4", figure_range)
+        model.generate_video(record_steps, basic_radii, f"./tmp/image-{i}.mp4", figure_range)
         model._reset()
     print("Successfully predicted!")
 
