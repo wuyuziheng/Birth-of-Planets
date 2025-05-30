@@ -179,7 +179,7 @@ class Model():
                     print("Merge Successed!")
                     return True
                 pbar.update(1)
-            print(f"Merge Failed! Remaining {self.num} planets")
+        print(f"Merge Failed! Remaining {self.num} planets")
         return False
 
     def _draw_figure(self, i, M, radii, num, basic_radii, figure_range):
@@ -198,6 +198,7 @@ class Model():
         ax.set_ylim(figure_range["width"][0], figure_range["width"][1]) 
         ax.set_zlim(-30000, 30000)
         ax.set_title(f"Process:{int(100*(self.finished_chunks*self.step_num+i+1)/self.total_num)}%, Remaining:{num}")
+        ax.scatter(0, 0, 0, c='y', marker='o')
         ax.scatter(M_x, M_y, M_z, s=scale, c='r', marker='o') 
         plt.savefig("./image.png")
         plt.close(fig)
@@ -244,7 +245,8 @@ if __name__ == "__main__":
     total_num = num_chunks * step_num
     M = init_state.init_M_state().to(device)
     radii = init_state.init_radii_state(basic_radii).to(device)
-    
+
+    # compute the range of velocity
     tmp_max = init_state._get_max_v(sun_mass)
     tmp_min = (1/math.sqrt(2))*tmp_max
     print("Max initial velocity:", tmp_max)
@@ -252,11 +254,13 @@ if __name__ == "__main__":
     if init_state.v_norm < tmp_min or init_state.v_norm > tmp_max: 
         print("----------WARNING!!! This velocity may be invalid!----------")
 
+    # make sure the traget directory exist
     if not os.path.exists("./tmp"):
         os.mkdir("./tmp")
     if not os.path.exists("./result"):
         os.mkdir("./result")
 
+    # initialize the figure config
     fig_config = config["figure_config"]
     print("Orbit figure saved.")
     init_state.draw_orbit(sun_mass, "./result/orbit.png")

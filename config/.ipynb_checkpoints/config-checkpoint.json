@@ -17,6 +17,6 @@
     "figure_config":
     {
         "margin_bias": 10000,
-        "range_quantile": 0.8
+        "range_quantile": 0.9
     }
 }
