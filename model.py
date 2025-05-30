@@ -228,7 +228,7 @@ if __name__ == "__main__":
             init_config        --> config for initialization
     """
     parser = argparse.ArgumentParser()
-    parser.add_argument("--config_path", type=str, default="./config.json")
+    parser.add_argument("--config_path", type=str, default="./config/config.json")
     args = parser.parse_args()
 
     # Parse arguments
@@ -244,11 +244,22 @@ if __name__ == "__main__":
     total_num = num_chunks * step_num
     M = init_state.init_M_state().to(device)
     radii = init_state.init_radii_state(basic_radii).to(device)
+
     
-    print(init_state._get_max_v(sun_mass))
+    tmp_max = init_state._get_max_v(sun_mass)
+    tmp_min = (1/math.sqrt(2))*tmp_max
+    print("Max initial velocity:", tmp_max)
+    print("Min initial velocity:", tmp_min)
+    if init_state.v_norm < tmp_min or init_state.v_norm > tmp_max: 
+        print("----------WARNING!!! This velocity may be invalid!----------")
 
     if not os.path.exists("./tmp"):
         os.mkdir("./tmp")
+    if not os.path.exists("./result"):
+        os.mkdir("./result")
+
+    print("Orbit figure saved.")
+    init_state.draw_orbit(sun_mass, "./result/orbit.png")
 
     # Run Model in chunks
     model = Model(M, rho, radii, sun_mass, beta, time, step_num, total_num)
@@ -259,7 +270,7 @@ if __name__ == "__main__":
         print(f"----------Generating video ... Chunk ({i+1}/{num_chunks})----------")
         model.generate_video(40, basic_radii, f"./tmp/image-{i}.mp4")
         model._reset()
-    print("Successfully merged!")
+    print("Successfully predicted!")
 
     # merge videos in each chunk
     L = [] 
@@ -273,5 +284,8 @@ if __name__ == "__main__":
                 os.remove(filePath)
                 L.append(video)
 
-    final_clip = concatenate_videoclips(L)
-    final_clip.write_videofile("./final.mp4", fps=FPS, remove_temp=False)
+    if len(L) != 0:
+        final_clip = concatenate_videoclips(L)
+        final_clip.write_videofile("./result/final.mp4", fps=FPS, remove_temp=False)
+    else:
+        print("----------WARNING!!! No Video Found!----------")
