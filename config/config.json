@@ -9,7 +9,7 @@
     "num_chunks": 5,
     "init_config":
     {
-        "num_planets": 10000,
+        "num_planets": 100,
         "pos_norm": 1000,
         "pos_bias": 100,
         "v_norm": 0.9,
@@ -17,6 +17,7 @@
     },
     "figure_config":
     {
+        "no_figure": true,
         "margin_bias": 1000,
         "plot_scale": 100,
         "range_quantile": 0.9,

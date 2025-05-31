@@ -47,6 +47,7 @@ class AutoConfig():
         self.v_bias = init_config["v_bias"]
 
         figure_config = config["figure_config"]
+        self.no_figure = figure_config["no_figure"]
         self.margin_bias = figure_config["margin_bias"]
         self.plot_scale = figure_config["plot_scale"]
         self.range_quantile = figure_config["range_quantile"]
@@ -94,6 +95,7 @@ class AutoConfig():
         config["init_config"] = init_config
         
         figure_config = {}
+        figure_config["no_figure"] = self.no_figure
         figure_config["margin_bias"] = self.margin_bias
         figure_config["plot_scale"] = self.plot_scale
         figure_config["range_quantile"] = self.range_quantile

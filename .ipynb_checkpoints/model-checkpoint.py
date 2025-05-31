@@ -305,6 +305,7 @@ if __name__ == "__main__":
     fig_config = config["figure_config"]
     print("Orbit figure saved.")
     init_state.draw_orbit(sun_mass, "./result/orbit.png")
+    no_figure = fig_config["no_figure"]
     margin_bias = fig_config["margin_bias"]
     max_figure_range = (torch.quantile(init_state.get_figure_range(M, sun_mass), fig_config["range_quantile"]) + margin_bias).cpu()
     min_figure_range = init_state.pos_norm + margin_bias
@@ -319,8 +320,9 @@ if __name__ == "__main__":
         print(f"----------Predicting ... Chunk ({i+1}/{num_chunks})----------")
         if model.evolve():
             break
-        print(f"----------Generating video ... Chunk ({i+1}/{num_chunks})----------")
-        model.generate_video(record_steps, basic_radii, f"./tmp/image-{i}.mp4", figure_range, plot_scale)
+        if not no_figure:
+            print(f"----------Generating video ... Chunk ({i+1}/{num_chunks})----------")
+            model.generate_video(record_steps, basic_radii, f"./tmp/image-{i}.mp4", figure_range, plot_scale)
         model._reset()
     print("Successfully predicted!")
     model.draw_distribution_graph("./result/distibution.png")
