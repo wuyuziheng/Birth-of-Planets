@@ -68,13 +68,21 @@ class Func():
         mass_with_sun = torch.cat([self.planet_mass, torch.tensor([self.sun_mass], dtype=dtype, device=device)], dim=0)
         dist_vec_matrix = M_with_sun[:, :3].unsqueeze(0).repeat(num+1,1,1) - M_with_sun[:,:3].unsqueeze(1).repeat(1,num+1,1)
         dist_matrix = dist_vec_matrix.square().sum(dim=2).fill_diagonal_(1).sqrt()
-        force_matrix = (G * dist_vec_matrix * (mass_with_sun.unsqueeze(1) @ mass_with_sun.unsqueeze(0)).unsqueeze(2).repeat(1,1,3) / dist_matrix.pow(3).unsqueeze(2).repeat(1,1,3))
-        force_matrix = torch.stack([force_matrix[:,:,0].fill_diagonal_(0), force_matrix[:,:,1].fill_diagonal_(0), force_matrix[:,:,2].fill_diagonal_(0)], dim=2)
-        force = force_matrix.sum(dim = 1)[:-1,:]
-        a = force / self.planet_mass.unsqueeze(1).repeat(1,3)
-        return torch.cat([M[:,3:6], a], dim=1)
-        
+        a_matrix = ((G * dist_vec_matrix * mass_with_sun.unsqueeze(0).unsqueeze(-1).repeat(num+1,1,3)) / dist_matrix.pow(3).unsqueeze(2).repeat(1,1,3)).sum(dim = 1)
+        a = a_matrix[:-1,:] - a_matrix[-1, :]
+        return torch.cat([M[:,3:6], a], dim=1)    
 
+def RK4_one_step(func, time, M):
+    """
+        Runge-Kutta 4 ODE solver.
+    """
+    # Moving the model forward by time using 1-stepped Runge-Kutta4.
+    k_1 = time * func(M)
+    k_2 = time * func(M + k_1 * (1/2))
+    k_3 = time * func(M + k_2 * (1/2))
+    k_4 = time * func(M + k_3)
+    return M + k_1 * (1/6) + k_2 * (1/3) + k_3 * (1/3) + k_4 * (1/6)
+    
 def RK5_one_step(func, time, M):
     """
         Runge-Kutta 5 ODE solver.
@@ -137,14 +145,14 @@ class Model():
         
     def move_one_step_forward(self):
         # use current state to predict next state
-        self.M = RK5_one_step(self.func, self.time, self.M)
+        self.M = RK4_one_step(self.func, self.time, self.M)
         
     def merge(self):
         # check if merger occurred
         while(True):
             if self.num == 1:
                 break
-            dist_matrix = (self.M[:,:3].unsqueeze(0).repeat(self.num,1,1) - self.M[:,:3].unsqueeze(1).repeat(1,self.num,1)).square().sum(-1).sqrt()
+            dist_matrix = torch.norm((self.M[:,:3].unsqueeze(0).repeat(self.num,1,1) - self.M[:,:3].unsqueeze(1).repeat(1,self.num,1)), p=2, dim=-1)
             threshold_matrix = self.beta * (self.radii.unsqueeze(-1) + self.radii.unsqueeze(-1).reshape(1,-1))
             tmp_matrix = torch.where(dist_matrix<=threshold_matrix, 1, 0).to(device) - torch.eye(self.num, device=device)
             if tmp_matrix.sum() == 0:
