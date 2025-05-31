@@ -155,6 +155,7 @@ class Model():
             dist_matrix = torch.norm((self.M[:,:3].unsqueeze(0).repeat(self.num,1,1) - self.M[:,:3].unsqueeze(1).repeat(1,self.num,1)), p=2, dim=-1)
             threshold_matrix = self.beta * (self.radii.unsqueeze(-1) + self.radii.unsqueeze(-1).reshape(1,-1))
             tmp_matrix = torch.where(dist_matrix<=threshold_matrix, 1, 0).to(device) - torch.eye(self.num, device=device)
+            # A pre-compute checking
             if tmp_matrix.sum() == 0:
                 break 
             else:
@@ -224,6 +225,7 @@ class Model():
             cv2.destroyAllWindows()
 
     def draw_distribution_graph(self, output_path):
+        # show the distribution of remianing planets
         fig = plt.figure()
         x = np.arange(self.total_num)
         y = np.array(self.total_num_list)
@@ -250,7 +252,7 @@ if __name__ == "__main__":
     parser.add_argument("--config_path", type=str, default="./config/config.json")
     args = parser.parse_args()
 
-    # Parse arguments ---> Add auto config to 
+    # Parse arguments ---> Add auto config
     config = Params(args.config_path).dict
     auto_config = Params(AUTO_CONFIG_PATH).dict
     auto = AutoConfig(config)
@@ -328,19 +330,19 @@ if __name__ == "__main__":
     model.draw_distribution_graph("./result/distibution.png")
 
     # merge videos in each chunk
-    L = [] 
+    if not no_figure:
+        L = [] 
+        for root, dirs, files in os.walk("./tmp/"):
+            files=natsorted(files) 
+            for file in files:
+                if os.path.splitext(file)[1] == '.mp4':
+                    filePath = os.path.join(root, file)
+                    video = VideoFileClip(filePath)
+                    os.remove(filePath)
+                    L.append(video)
     
-    for root, dirs, files in os.walk("./tmp/"):
-        files=natsorted(files) 
-        for file in files:
-            if os.path.splitext(file)[1] == '.mp4':
-                filePath = os.path.join(root, file)
-                video = VideoFileClip(filePath)
-                os.remove(filePath)
-                L.append(video)
-
-    if len(L) != 0:
-        final_clip = concatenate_videoclips(L)
-        final_clip.write_videofile("./result/final.mp4", fps=FPS, remove_temp=False)
-    else:
-        print("----------WARNING!!! No Videos Found!----------")
+        if len(L) != 0:
+            final_clip = concatenate_videoclips(L)
+            final_clip.write_videofile("./result/final.mp4", fps=FPS, remove_temp=False)
+        else:
+            print("----------WARNING!!! No Videos Found!----------")

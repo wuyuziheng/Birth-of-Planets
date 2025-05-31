@@ -65,3 +65,4 @@ if __name__ == "__main__":
     print(f"total_time:{end_time-start_time}")
     math.sqrt(GM(2/r-1/a))*r = r1*norm(v)*math.sin(theta)
     
+    

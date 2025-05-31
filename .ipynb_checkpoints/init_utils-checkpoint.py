@@ -42,17 +42,20 @@ class Init_Utils():
         return torch.full((self.num,),basic_radii, device=self.device).to(dtype=dtype).abs() # We first assume they have the same radius at beginning
 
     def _ellipse_orbit(self, theta, v, sin_phi, r, sun_mass):
+        # compute the orbit from a given initial state
         h = v*sin_phi*r
         E = (1/2)*v*v - (self.G * sun_mass)/r
         e = torch.sqrt(1+(2*E*h*h)/(self.G*self.G*sun_mass*sun_mass))
         return (h**2/(self.G*sun_mass))/(1+e*torch.cos(theta))
 
     def _max_orbit_range(self, v, sin_phi, r, sun_mass):
+        # compute the max ranget of the orbit from a given initial state
         total_num = v.size(0)
         theta = torch.full((total_num,), math.pi, device=self.device)
         return self._ellipse_orbit(theta, v, sin_phi, r, sun_mass)
     
     def _draw_polar(self, series: pd.Series, output_path):
+        # draw a polar graph of the orbit from a given initial state
         fig = plt.figure()
         ax = fig.add_subplot(111, projection='polar')  
         ax.set_theta_direction(-1) 
@@ -62,12 +65,14 @@ class Init_Utils():
         plt.close(fig)
 
     def draw_orbit(self, sun_mass, output_path):
+        # parse the config and draw a polar graph
         config = {"v": self.v_norm, "sin_phi": math.sin(math.pi/2), "r": self.pos_norm, "sun_mass": sun_mass}
         theta = torch.arange(0, 2*math.pi, 0.01, device=self.device)
         orbit = pd.Series(self._ellipse_orbit(theta, **config).cpu().numpy(), theta.cpu().numpy())
         self._draw_polar(orbit, output_path)
 
     def get_figure_range(self, M, sun_mass):
+        # get the max range of the initial state
         pos_state = M[:,:3]
         v_state = M[:,3:]
         r = pos_state.square().sum(-1).sqrt()

@@ -4,12 +4,12 @@
     "sun_mass": 1.0e16,
     "merging_threshold": 1.5, 
     "per_step_time": 10,
-    "num_steps": 10000,
+    "num_steps": 1000,
     "basic_radii": 1,
     "num_chunks": 5,
     "init_config":
     {
-        "num_planets": 100,
+        "num_planets": 1000,
         "pos_norm": 1000,
         "pos_bias": 100,
         "v_norm": 0.9,

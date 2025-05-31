@@ -27,6 +27,9 @@ class Params():
         return self.__dict__
 
 class AutoConfig():
+    """
+        A Strong Config Manager, load a given config, do some changes, and save them.
+    """
     def __init__(self, config):
         self.config = config
 
@@ -61,21 +64,24 @@ class AutoConfig():
         self.__init__(config)
 
     def _get_metrics(self):
+        # get the metrics from a given config
         metrics = {}
         metrics["merger_checking"] = self.pos_bias/(self.basic_radii*self.merging_threshold)
         metrics["orbit_constant"] = math.sqrt(self.G*self.sun_mass/self.pos_norm)/self.v_norm
         metrics["force_ratio"] = self.sun_mass * math.pow(self.pos_bias,2)/(self.rho * math.pow(self.basic_radii,3) * math.pow(self.pos_norm, 2))
-        metrics["angular_velocity"] = self.v_norm/self.pos_norm
+        metrics["angular_velocity"] = self.per_step_time * self.v_norm/self.pos_norm
         metrics["init_pos_ratio"] = self.pos_bias/self.pos_norm
         metrics["init_vel_ratio"] = self.v_bias/self.v_norm
         metrics["line_density"] = self.basic_radii/self.pos_norm
         return metrics
 
     def _config_to_json(self, config, output_path):
+        # save the config to a json file
         with open(output_path, 'w') as f: 
             f.write(json.dumps(config))
 
     def _reset_config(self, output_path):
+        # generate a config and save
         config = {}
         config["G"] = self.G
         config["rho"] = self.rho
@@ -109,6 +115,7 @@ class AutoConfig():
         self._config_to_json(config, output_path)
     
     def init_config_from_metrics(self, merger_checking, orbit_constant, force_ratio, angular_velocity, init_pos_ratio, init_vel_ratio, G, sun_mass, merging_threshold, pos_norm, output_path, **kwargs):
+        # initialize a config from the metrics
         self.G = G
         self.sun_mass = sun_mass
         self.merging_threshold = merging_threshold
@@ -126,6 +133,7 @@ class AutoConfig():
         return output_path
         
     def identity_length(self, scale, output_path):
+        # initialize a config from the identity transformation of length
         self.G = self.G/(math.pow(scale,3))
         self.rho = self.rho * math.pow(scale,3)
         self.basic_radii = self.basic_radii/scale
@@ -140,6 +148,7 @@ class AutoConfig():
         return output_path
 
     def identity_mass(self, scale, output_path):
+        # initialize a config from the identity transformation of mass
         self.G = self.G * scale
         self.rho = self.rho/scale
         self.sun_mass = self.sun_mass/scale
@@ -149,6 +158,7 @@ class AutoConfig():
         return output_path
 
     def identity_time(self, scale, output_path):
+        # initialize a config from the identity transformation of time
         self.G = self.G * math.pow(scale, 2)
         self.per_step_time = self.per_step_time/scale
         self.v_norm = self.v_norm * scale 
@@ -159,6 +169,7 @@ class AutoConfig():
         return output_path
 
     def identity_scope(self, scale, output_path):
+        # initialize a config from the identity transformation of scope
         self.rho = self.rho * math.pow(scale, 3)
         self.sun_mass = self.sun_mass * math.pow(scale, 3)
         self.merging_threshold = self.merging_threshold * scale 

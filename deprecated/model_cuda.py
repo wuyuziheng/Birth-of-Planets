@@ -8,6 +8,7 @@ import argparse
 from init_utils import *
 from auto_config import *
 import cv2
+from numba import cuda
 
 from moviepy import *
 import os
@@ -21,9 +22,8 @@ from natsort import natsorted
         FPS    --> number of frames in a second 
         SIZE   --> resolution of the video
 """
-# device = torch.device('cuda')
-# device = torch.device('cpu')
-dtype = torch.float64
+
+dtype = np.float64
 FPS = 30
 SIZE = (640,480)
 AUTO_CONFIG_PATH = "./config/auto_config.json"
@@ -50,6 +50,28 @@ class Params():
     def dict(self):
         return self.__dict__
 
+@cuda.jit
+def cuda_kernel(a, c_size, res_size, M, mass):
+    i = cuda.blockIdx.x
+    k = cuda.threadIdx.x
+    if k < res_size:
+        start = k * (c_size + 1)
+        end = (k+1) * (c_size + 1)
+    else: 
+        start = res_size * (c_size + 1) + (k - res_size) * c_size
+        end = res_size * (c_size + 1) + (k + 1 - res_size) * c_size
+    if start != end: 
+        num = M.shape[0]
+        for j in range(start, end):
+            dist_x = M[i,0]-M[j,0]
+            dist_y = M[i,1]-M[j,1]
+            dist_z = M[i,2]-M[j,2]
+            dist_square = dist_x * dist_x + dist_y * dist_y + dist_z * dist_z + 1e-9
+            coff = math.pow(dist_square, -3/2) * mass[j]
+            a[i][0] -= coff * dist_x
+            a[i][1] -= coff * dist_y
+            a[i][2] -= coff * dist_z
+
 class Func():
     """
         Compute the derivative of the current state.
@@ -60,17 +82,18 @@ class Func():
         self.planet_mass = planet_mass
 
     def __call__(self, M):
-        # M: Each row (x, y, z, vx, vy, vz) is the state of a planet.
-        assert M.size(1) == 6
-        assert M.size(0) == self.planet_mass.size(0)
-        num = M.size(0)
-        M_with_sun = torch.cat([M, torch.tensor([[0,0,0,0,0,0]], dtype=dtype, device=device)], dim=0)
-        mass_with_sun = torch.cat([self.planet_mass, torch.tensor([self.sun_mass], dtype=dtype, device=device)], dim=0)
-        dist_vec_matrix = M_with_sun[:, :3].unsqueeze(0).repeat(num+1,1,1) - M_with_sun[:,:3].unsqueeze(1).repeat(1,num+1,1)
-        dist_matrix = dist_vec_matrix.square().sum(dim=2).fill_diagonal_(1).sqrt()
-        a_matrix = ((G * dist_vec_matrix * mass_with_sun.unsqueeze(0).unsqueeze(-1).repeat(num+1,1,3)) / dist_matrix.pow(3).unsqueeze(2).repeat(1,1,3)).sum(dim = 1)
-        a = a_matrix[:-1,:] - a_matrix[-1, :]
-        return torch.cat([M[:,3:6], a], dim=1)    
+        i = cuda.threadIdx.x 
+        j = cuda.blockIdx.x  
+        M_with_sun = np.concatenate([M, np.array([[0,0,0,0,0,0]], dtype=dtype)], axis=0)
+        mass_with_sun = np.concatenate([self.planet_mass, np.array([self.sun_mass], dtype=dtype)], axis=0)
+        num = M_with_sun.shape[0]
+        concurrent_size = int(num/1024)
+        res_size = num - 1024*concurrent_size
+        a = np.zeros((num, 3))
+        cuda_kernel[(num,1,1), (1024,1,1)](a, concurrent_size, res_size, M_with_sun,mass_with_sun)
+        return np.concatenate([M[:,3:], a[:-1,:]], dtype=dtype, axis=1)
+        
+
 
 def RK4_one_step(func, time, M):
     """
@@ -110,15 +133,15 @@ class Model():
             step_num: Number of total steps.
         """
         assert M.size(0) == radii.size(0)
-        self.M = M # the current state (pos, vel)
+        self.M = M.cpu().numpy() # the current state (pos, vel)
         self.rho = rho # density
-        self.radii = radii # radius 
+        self.radii = radii.cpu().numpy() # radius 
         self.sun_mass = sun_mass # mass of sun
         self.beta = beta # merging threshold
         self.time = time # time per step
         self.step_num = step_num # number of steps
 
-        self.func = Func(torch.tensor(self.rho * (4/3) * math.pi, dtype=dtype, device=device) * self.radii.pow(3), self.sun_mass)
+        self.func = Func(np.array(self.rho * (4/3) * math.pi, dtype=dtype) * np.pow(self.radii,3), self.sun_mass)
         self.num = M.size(0) # number of planets
         self.init_num = M.size(0)
 
@@ -152,24 +175,25 @@ class Model():
         while(True):
             if self.num == 1:
                 break
-            dist_matrix = torch.norm((self.M[:,:3].unsqueeze(0).repeat(self.num,1,1) - self.M[:,:3].unsqueeze(1).repeat(1,self.num,1)), p=2, dim=-1)
-            threshold_matrix = self.beta * (self.radii.unsqueeze(-1) + self.radii.unsqueeze(-1).reshape(1,-1))
-            tmp_matrix = torch.where(dist_matrix<=threshold_matrix, 1, 0).to(device) - torch.eye(self.num, device=device)
+            dist_matrix = np.linalg.norm((np.expand_dims(self.M[:,:3], axis=0).repeat(self.num,axis=0) - np.expand_dims(self.M[:,:3],axis=1).repeat(self.num,axis=1)), axis=-1)
+            threshold_matrix = self.beta * (np.expand_dims(self.radii,axis=-1) + np.expand_dims(self.radii,axis=-1).reshape(1,-1))
+            tmp_matrix = np.where(dist_matrix<=threshold_matrix, 1, 0) - np.eye(self.num)
             if tmp_matrix.sum() == 0:
                 break 
             else:
-                tmp_num = self.M.size(0)
-                i, j = torch.nonzero(tmp_matrix)[0]
+                tmp_num = self.M.shape[0]
+                i, j = np.nonzero(tmp_matrix)
+                i, j = i[0], j[0]
                 temp1 = 1
-                mi, mj = self.radii[i].pow(3), self.radii[j].pow(3)
+                mi, mj = np.pow(self.radii[i],3), np.pow(self.radii[j],3)
                 pi, pj = self.M[i,:3], self.M[j,:3]
                 vi, vj = self.M[i,3:6], self.M[j,3:6]
                 new_position = (pi * mi + pj * mj) / (mi + mj)
                 new_velocity = (mi * vi + mj * vj) / (mi + mj)
-                new_radius = (mi + mj).pow(1/3)
-                self.M = torch.cat([self.M[:i,:], self.M[i+1:j,:], self.M[j+1:,:], torch.cat([new_position, new_velocity]).unsqueeze(dim=0)], dim=0)
-                self.radii = torch.cat([self.radii[:i], self.radii[i+1:j], self.radii[j+1:], new_radius.unsqueeze(dim=0)])
-                self.func = Func(torch.tensor(self.rho * (4/3) * math.pi, dtype=dtype, device=device) * self.radii.pow(3), self.sun_mass)
+                new_radius = np.pow((mi + mj),1/3)
+                self.M = np.concatenate([self.M[:i,:], self.M[i+1:j,:], self.M[j+1:,:], np.expand_dims(np.concatenate([new_position, new_velocity]), axis=0)], axis=0)
+                self.radii = np.concatenate([self.radii[:i], self.radii[i+1:j], self.radii[j+1:], np.expand_dims(new_radius, axis=0)])
+                self.func = Func(np.array(self.rho * (4/3) * math.pi, dtype=dtype) * np.pow(self.radii,3), self.sun_mass)
                 self.num = self.num - 1
 
 
@@ -280,7 +304,7 @@ if __name__ == "__main__":
     time = config["per_step_time"]
     basic_radii = config["basic_radii"]
     num_chunks = config["num_chunks"]
-    G = torch.tensor(G, dtype=dtype).to(device)
+    G = torch.tensor(G, dtype=torch.float64, device=device)
     init_state = Init_Utils(device, G, **config["init_config"])
     total_num = num_chunks * step_num
     M = init_state.init_M_state().to(device)
@@ -306,7 +330,7 @@ if __name__ == "__main__":
     print("Orbit figure saved.")
     init_state.draw_orbit(sun_mass, "./result/orbit.png")
     margin_bias = fig_config["margin_bias"]
-    max_figure_range = (torch.quantile(init_state.get_figure_range(M, sun_mass), fig_config["range_quantile"]) + margin_bias).cpu()
+    max_figure_range = (np.quantile(init_state.get_figure_range(M, sun_mass).cpu().numpy(), fig_config["range_quantile"]) + margin_bias)
     min_figure_range = init_state.pos_norm + margin_bias
     width = (max_figure_range + min_figure_range)/2
     figure_range = {"length":[-max_figure_range, min_figure_range], "width":[-width, width]}
