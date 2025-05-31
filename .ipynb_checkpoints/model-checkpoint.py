@@ -22,7 +22,7 @@ from natsort import natsorted
         SIZE   --> resolution of the video
 """
 # device = torch.device('cuda')
-device = torch.device('cpu')
+# device = torch.device('cpu')
 dtype = torch.float64
 FPS = 30
 SIZE = (640,480)
@@ -144,31 +144,26 @@ class Model():
         while(True):
             if self.num == 1:
                 break
-            temp1 = 0
             dist_matrix = (self.M[:,:3].unsqueeze(0).repeat(self.num,1,1) - self.M[:,:3].unsqueeze(1).repeat(1,self.num,1)).square().sum(-1).sqrt()
             threshold_matrix = self.beta * (self.radii.unsqueeze(-1) + self.radii.unsqueeze(-1).reshape(1,-1))
-            tmp_matrix = torch.where(dist_matrix<=threshold_matrix, 1, 0).to(device)
-            if tmp_matrix.sum() == self.num:
+            tmp_matrix = torch.where(dist_matrix<=threshold_matrix, 1, 0).to(device) - torch.eye(self.num, device=device)
+            if tmp_matrix.sum() == 0:
                 break 
             else:
                 tmp_num = self.M.size(0)
-                for i in range(tmp_num): 
-                    for j in range(i+1, tmp_num):
-                        if tmp_matrix[i][j] == 1:
-                            temp1 = 1
-                            mi, mj = self.radii[i].pow(3), self.radii[j].pow(3)
-                            pi, pj = self.M[i,:3], self.M[j,:3]
-                            vi, vj = self.M[i,3:6], self.M[j,3:6]
-                            new_position = (pi * mi + pj * mj) / (mi + mj)
-                            new_velocity = (mi * vi + mj * vj) / (mi + mj)
-                            new_radius = (mi + mj).pow(1/3)
-                            self.M = torch.cat([self.M[:i,:], self.M[i+1:j,:], self.M[j+1:,:], torch.cat([new_position, new_velocity]).unsqueeze(dim=0)], dim=0)
-                            self.radii = torch.cat([self.radii[:i], self.radii[i+1:j], self.radii[j+1:], new_radius.unsqueeze(dim=0)])
-                            self.func = Func(torch.tensor(self.rho * (4/3) * math.pi, dtype=dtype, device=device) * self.radii.pow(3), self.sun_mass)
-                            self.num = self.num - 1
-                            break
-                    if temp1 == 1: 
-                        break
+                i, j = torch.nonzero(tmp_matrix)[0]
+                temp1 = 1
+                mi, mj = self.radii[i].pow(3), self.radii[j].pow(3)
+                pi, pj = self.M[i,:3], self.M[j,:3]
+                vi, vj = self.M[i,3:6], self.M[j,3:6]
+                new_position = (pi * mi + pj * mj) / (mi + mj)
+                new_velocity = (mi * vi + mj * vj) / (mi + mj)
+                new_radius = (mi + mj).pow(1/3)
+                self.M = torch.cat([self.M[:i,:], self.M[i+1:j,:], self.M[j+1:,:], torch.cat([new_position, new_velocity]).unsqueeze(dim=0)], dim=0)
+                self.radii = torch.cat([self.radii[:i], self.radii[i+1:j], self.radii[j+1:], new_radius.unsqueeze(dim=0)])
+                self.func = Func(torch.tensor(self.rho * (4/3) * math.pi, dtype=dtype, device=device) * self.radii.pow(3), self.sun_mass)
+                self.num = self.num - 1
+
 
     def evolve(self):
         # prediction
@@ -187,14 +182,14 @@ class Model():
         print(f"Merge Failed! Remaining {self.num} planets")
         return False
 
-    def _draw_figure(self, i, M, radii, num, basic_radii, figure_range):
+    def _draw_figure(self, i, M, radii, num, basic_radii, figure_range, plot_scale):
         # draw a single frame
         fig = plt.figure()
         ax = fig.add_subplot(111, projection ='3d')
         M_x = M[:,0].cpu().numpy()
         M_y = M[:,1].cpu().numpy()
         M_z = M[:,2].cpu().numpy()
-        scale = 10*math.pi*radii.square()/(basic_radii**2)
+        scale = 100*plot_scale*radii.square()/(basic_radii**2)
         scale = scale.cpu().numpy()
         ax.set_xlabel("X")
         ax.set_ylabel("Y")
@@ -210,12 +205,12 @@ class Model():
         self.video.write(cv2.imread("./image.png"))
         os.remove("./image.png")
         
-    def generate_video(self, record_steps, basic_radii, output_path, figure_range):
+    def generate_video(self, record_steps, basic_radii, output_path, figure_range, plot_scale):
         # merge to a video
         with tqdm(total=int(self.step_num/record_steps)) as pbar:
             self.video = cv2.VideoWriter(output_path, cv2.VideoWriter_fourcc(*"mp4v"), FPS, SIZE) 
             for i in range(0, self.step_num, record_steps):
-                self._draw_figure(i, self.result_list[i], self.radii_list[i], self.num_list[i], basic_radii, figure_range)
+                self._draw_figure(i, self.result_list[i], self.radii_list[i], self.num_list[i], basic_radii, figure_range, plot_scale)
                 pbar.update(1)
             self.video.release()
             cv2.destroyAllWindows()
@@ -259,12 +254,16 @@ if __name__ == "__main__":
         "id-scope": auto.identity_scope,
         "metric-mode": auto.init_config_from_metrics
     }
+    output_path = AUTO_CONFIG_MAP[method](**auto_config[method])
     try:
         output_path = AUTO_CONFIG_MAP[method](**auto_config[method])
         print(f"----------Change to Auto Config {output_path}----------")
         config = Params(output_path).dict
     except:
         print("----------Invalid auto config setting! Use the original config ... ----------")
+
+    device = torch.device(config["device"])
+    
     G = config["G"]
     rho = config["rho"]
     sun_mass = config["sun_mass"]
@@ -274,7 +273,7 @@ if __name__ == "__main__":
     basic_radii = config["basic_radii"]
     num_chunks = config["num_chunks"]
     G = torch.tensor(G, dtype=dtype).to(device)
-    init_state = Init_Utils(G, **config["init_config"])
+    init_state = Init_Utils(device, G, **config["init_config"])
     total_num = num_chunks * step_num
     M = init_state.init_M_state().to(device)
     radii = init_state.init_radii_state(basic_radii).to(device)
@@ -299,10 +298,11 @@ if __name__ == "__main__":
     print("Orbit figure saved.")
     init_state.draw_orbit(sun_mass, "./result/orbit.png")
     margin_bias = fig_config["margin_bias"]
-    max_figure_range = torch.quantile(init_state.get_figure_range(M, sun_mass), fig_config["range_quantile"]) + margin_bias
+    max_figure_range = (torch.quantile(init_state.get_figure_range(M, sun_mass), fig_config["range_quantile"]) + margin_bias).cpu()
     min_figure_range = init_state.pos_norm + margin_bias
     width = (max_figure_range + min_figure_range)/2
     figure_range = {"length":[-max_figure_range, min_figure_range], "width":[-width, width]}
+    plot_scale = fig_config["plot_scale"]/math.pow(init_state.num,2)
     record_steps = fig_config["record_steps"]
 
     # Run Model in chunks
@@ -312,7 +312,7 @@ if __name__ == "__main__":
         if model.evolve():
             break
         print(f"----------Generating video ... Chunk ({i+1}/{num_chunks})----------")
-        model.generate_video(record_steps, basic_radii, f"./tmp/image-{i}.mp4", figure_range)
+        model.generate_video(record_steps, basic_radii, f"./tmp/image-{i}.mp4", figure_range, plot_scale)
         model._reset()
     print("Successfully predicted!")
     model.draw_distribution_graph("./result/distibution.png")

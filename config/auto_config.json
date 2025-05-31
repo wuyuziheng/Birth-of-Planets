@@ -16,15 +16,15 @@
         "output_path": "./config/auto-config"
     },
     "metric-mode":{
-        "merger_checking": 10.0, 
+        "merger_checking": 1, 
         "orbit_constant": 0.907717256244449,
-        "force_ratio": 100000000000000,
+        "force_ratio": 100000000,
         "angular_velocity": 0.0009,
         "init_pos_ratio": 0.1,
         "init_vel_ratio": 0.011111111111111112,
         "G": 6.674e-11,
         "sun_mass": 1.0e16,
-        "merging_threshold": 10,
+        "merging_threshold": 2,
         "pos_norm": 10000,
         "output_path": "./config/auto-config"
     }

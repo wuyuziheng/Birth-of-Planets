@@ -2,7 +2,7 @@
     "G": 6.674e-14,
     "rho": 1000,
     "sun_mass": 1.0e16,
-    "merging_threshold": 10, 
+    "merging_threshold": 1.5, 
     "per_step_time": 10,
     "num_steps": 10000,
     "basic_radii": 1,
@@ -18,8 +18,10 @@
     "figure_config":
     {
         "margin_bias": 1000,
+        "plot_scale": 100,
         "range_quantile": 0.9,
         "record_steps": 40
     },
-    "auto_config_method": "metric-mode"
+    "auto_config_method": "metric-mode",
+    "device": "cuda"
 }

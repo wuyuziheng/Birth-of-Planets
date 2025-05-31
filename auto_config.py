@@ -48,10 +48,14 @@ class AutoConfig():
 
         figure_config = config["figure_config"]
         self.margin_bias = figure_config["margin_bias"]
+        self.plot_scale = figure_config["plot_scale"]
         self.range_quantile = figure_config["range_quantile"]
         self.record_steps = figure_config["record_steps"]
-        self.metrics = self._get_metrics()
+
+        self.device = config["device"]
         
+        self.metrics = self._get_metrics()
+
     def _reset(self, config): 
         self.__init__(config)
 
@@ -91,10 +95,13 @@ class AutoConfig():
         
         figure_config = {}
         figure_config["margin_bias"] = self.margin_bias
+        figure_config["plot_scale"] = self.plot_scale
         figure_config["range_quantile"] = self.range_quantile
         figure_config["record_steps"] = self.record_steps
         config["figure_config"] = figure_config
 
+        config["device"] = self.device
+        
         config["metrics"] = self.metrics
         
         self._config_to_json(config, output_path)
@@ -102,6 +109,7 @@ class AutoConfig():
     def init_config_from_metrics(self, merger_checking, orbit_constant, force_ratio, angular_velocity, init_pos_ratio, init_vel_ratio, G, sun_mass, merging_threshold, pos_norm, output_path, **kwargs):
         self.G = G
         self.sun_mass = sun_mass
+        self.merging_threshold = merging_threshold
         self.pos_norm = pos_norm
         self.pos_bias = init_pos_ratio * pos_norm
         self.v_norm = math.sqrt(self.G*self.sun_mass/self.pos_norm)/orbit_constant
