@@ -33,24 +33,24 @@ python model.py --config YOUR_CONFIG_PATH
 在`config`文件中，我们有如下参数，假设长度量纲为x，质量量纲为y，时间量纲为z。
 |参数|描述|单位|默认值|
 | --- | --- | --- | --- |
-|G | 万有引力常数 | $x^3y^{-1}z^{-2}$||
-|rho | 行星初始密度 | $x^{-3}y$||
+|G | 万有引力常数 | $x^3y^{-1}z^{-2}$|6.674e-11|
+|rho | 行星初始密度 | $x^{-3}y$|1|
 |sun_mass | 中心恒心质量|$y$|1e16|
-|merging_threshold | 合并检测阈值|无||
-|per_step_time |每步预测间隔|$z$||
-|num_steps |单个chunk的总步长|无|10000|
-|basic_radii |行星初始半径|$x$||
+|merging_threshold | 合并检测阈值|无|2|
+|per_step_time |每步预测间隔|$z$|11.1111|
+|num_steps |单个chunk的总步长|无|100000|
+|basic_radii |行星初始半径|$x$|20|
 |num_chunks |chunk个数|无|5|
 |init_config |关于初始化的参数|||
 |--- num_planets |行星个数|无|1000|
-|--- pos_norm |初始位置|$x$||
-|--- pos_bias |初始位置扰动|$x$||
-|--- v_norm |初始速度|$xz^{-1}$||
-|--- v_bias |初始速度扰动|$xz^{-1}$||
+|--- pos_norm |初始位置|$x$|10000|
+|--- pos_bias |初始位置扰动|$x$|1000|
+|--- v_norm |初始速度|$xz^{-1}$|9.0|
+|--- v_bias |初始速度扰动|$xz^{-1}$|0.1|
 |figure_config |关于绘图的参数|||
 |--- no_figure |不需要视频|无|false|
 |--- margin_bias |图片边缘大小|$x$|推荐与`pos_norm`相同|
-|--- plot_scale |图中行星的大小|无|100|
+|--- plot_scale |图中行星的大小|无|500|
 |--- range_quantile |主要视图的分位数|无|0.9|
 |--- record_steps |视频记录的步长|无|40|
 |auto_config_method |auto_config的方法|无|"metric-mode"|
@@ -65,16 +65,16 @@ python model.py --config YOUR_CONFIG_PATH
 `metric-mode`方法的参数有：
 |参数|描述|单位|默认值|
 | --- | --- | --- | --- |
-|merger_checking|初始合并参考值|无||
-|orbit_constant|轨道常数|无||
-|force_ratio|恒星引力和行星间引力的比较|无||
-|angular_velocity|每步记录走过的角度|弧度制||
-|init_pos_ratio|位置误差关于初始位置的比值|无||
-|init_vel_ratio|速度误差关于初始速度的比值|无||
-|G|万有引力常数|$x^3y^{-1}z^{-2}$||
-|sun_mass|中心恒星质量|$y$||
-|merging_threshold|合并检测阈值|无||
-|pos_norm|初始位置|$x$||
+|merger_checking|初始合并参考值|无|25|
+|orbit_constant|轨道常数|无|0.9077172|
+|force_ratio|恒星引力和行星间引力的比较|无|1.25e10|
+|angular_velocity|每步记录走过的角度|弧度制|0.01|
+|init_pos_ratio|位置误差关于初始位置的比值|无|0.1|
+|init_vel_ratio|速度误差关于初始速度的比值|无|0.01111|
+|G|万有引力常数|$x^3y^{-1}z^{-2}$|6.674e-11|
+|sun_mass|中心恒星质量|$y$|1e16|
+|merging_threshold|合并检测阈值|无|2|
+|pos_norm|初始位置|$x$|10000|
 |output_path|auto_config导出路径的前缀|无|"./config/auto-config"|
 ### 建模思路
 直接使用`all-pairs`的方式暴力计算所有引力，并使用CUDA并行计算加速。假设所有行星密度相同，初始的半径也相同。初始位置为行星位于恒星的近日点，距离为`pos_norm`，初始速度`v_norm`在满足近日点的范围内。初始行星分布以初始位置为中心，以`pos_bias`往外呈正态分布，速度同理，在初始速度的基础上以`v_bias`往外呈正态分布。使用`Runge-Kutta`法打点计算行星位置，并在每步计算完后检测是否有合并，有则将两个行星合并到其质心，保持密度，质量，动量不变。
@@ -98,8 +98,13 @@ python model.py --config YOUR_CONFIG_PATH
 在此基础上，我们加入了初始化代码，可以自行在`init_utils`下调整。此外，由于参数众多，我们实现了自动调参器`auto_config`。由于我们是忽略量纲的参数体系，所以我们有三个基础的单位恒等变换`id-length`,`id-mass`,`id-time`。在此基础上，我们根据加速度的计算式可以观察到一个新的恒等变换`id-scope`。在此基础上，我们自定义了6个有物理含义的基础参数`merger_checking`,`orbit_constant`,`force_ratio`,`angular_velocity`,`init_pos_ratio`,`init_vel_ratio`，并使用这些物理量加上四个重要的参数`G`,`sun_mass`,`merging_threshold`,`pos_norm`来重构了参数的依赖关系，从而只需要调节这些参数即可。
 
 ### 实验结果
+详见`实验报告.md`文件。
 
 ### 未完成的工作
 1. 可以尝试从不同的初始位置（不一定要是近日点）来计算。已经在`init_utils`里面实现了轨道模型，只需再对速度进行一些计算与限制。
 2. CUDA并行应该可以优于pytorch，还可以在并行的内存访问上做优化，将状态矩阵M切块放到共享内存和常量内存中，极大减少io速度。也可以增大GridSize的大小，将一个行星的加速度计算分配到多个block上，实现进一步加速。
+
+### 参考文献
+1. 多体问题N-body：基于CUDA的快速N-body模拟 https://yangwc.com/2019/06/20/NbodySimulation/
+2. https://docs.nvidia.com/cuda/cuda-c-programming-guide/index.html#abstract
 
