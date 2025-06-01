@@ -123,7 +123,7 @@ class AutoConfig():
         self.pos_bias = init_pos_ratio * pos_norm
         self.v_norm = math.sqrt(self.G*self.sun_mass/self.pos_norm)/orbit_constant
         self.v_bias = init_vel_ratio * self.v_norm
-        self.per_step_time = self.pos_norm/(self.v_norm*100)
+        self.per_step_time = angular_velocity * self.pos_norm/(self.v_norm)
         self.basic_radii = self.pos_bias/(self.merging_threshold * merger_checking)
         self.rho = self.sun_mass * math.pow(self.pos_bias,2)/(force_ratio * math.pow(self.basic_radii,3) * math.pow(self.pos_norm, 2))
         self.margin_bias = self.pos_norm
